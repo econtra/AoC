@@ -11,6 +11,7 @@ type ``Results`` () =
 
     let testfun x = x + 2
 
+
     [<TestCase(1)>]
     member _.``1`` (dag : int) =
         let input = System.IO.File.ReadAllLines (sprintf @"H:\AdventOfCode\Data\2022\%i.txt" dag)
