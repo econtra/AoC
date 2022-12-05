@@ -204,6 +204,7 @@ type ``Results`` () =
     member _.``5`` () =
         let dag = TestContext.CurrentContext.Test.MethodName
         let input = System.IO.File.ReadAllLines (sprintf @"C:\Users\STP\source\repos\econtra\AoC\AdventOfCode\Data\2022\%s.txt" dag)
+                    |> Array.toList
 
         let result1 = 0
         let result2 = 0
