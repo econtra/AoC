@@ -206,9 +206,110 @@ type ``Results`` () =
         let input = System.IO.File.ReadAllLines (sprintf @"C:\Users\STP\source\repos\econtra\AoC\AdventOfCode\Data\2022\%s.txt" dag)
                     |> Array.toList
 
+
+        let startStateRaw = input
+                            |> List.takeWhile (fun s -> s.Substring(0,2) |> (<>) " 1")
+
+        let numberOfStacks = startStateRaw
+                             |> List.last
+                             |> Seq.filter ((=) '[')
+                             |> Seq.length
+
+        let startState = [0 .. numberOfStacks - 1]
+                         |> List.map (fun i -> startStateRaw
+                                               |> List.map (fun s -> s.Substring(1 + 4 * i,1))
+                                               |> List.filter ((<>) " ")
+                                     )
+                         |> List.toArray
+
+        let parseToCommands (s : string) =
+            let split = s.Split(' ')
+            List.replicate (int split.[1]) (int split.[3] - 1, int split.[5] - 1)
+
+        let executeCommand (state : string list array) (command : int * int) : string list array =
+            let movedLetter = state[fst command].Head
+            let newFrom = state[fst command].Tail
+            let newTo = movedLetter :: state[snd command]
+            Array.fill state (fst command) 1 newFrom
+            Array.fill state (snd command) 1 newTo
+            state
+
+        let orderList = input
+                        |> List.partition (fun s -> s.StartsWith('m'))
+                        |> fst
+
+        //let completedState = orderList
+        //                     |> List.collect parseToCommands
+        //                     |> List.fold executeCommand startState
+
+        //let result1 = completedState
+        //              |> Array.map List.head
+        //              |> Array.reduce (+)
+
+
+
+
+
+        let startState9001 = [0 .. numberOfStacks - 1]
+                             |> List.map (fun i -> startStateRaw
+                                                   |> List.map (fun s -> s.Substring(1 + 4 * i,1))
+                                                   |> List.filter ((<>) " ")
+                                         )
+                             |> List.toArray
+
+        let parseToCommands9001 (s : string) =
+            let split = s.Split(' ')
+            int split.[1], int split.[3] - 1, int split.[5] - 1
+
+        let executeCommand9001 (state : string list array) (command : int * int * int) : string list array =
+            let quantity, fra, til = command
+            let movedLetters = state[fra] |> List.take quantity
+            let newFrom = state[fra] |> List.rev |> List.take (state[fra].Length - quantity) |> List.rev
+            let newTo = movedLetters @ state[til]
+            Array.fill state (fra) 1 newFrom
+            Array.fill state (til) 1 newTo
+            state
+
+        let completedState9001 = orderList
+                                 |> List.map parseToCommands9001
+                                 |> List.fold executeCommand9001 startState9001
+
+        let result2 = completedState9001
+                      |> Array.map List.head
+                      |> Array.reduce (+)
+
+        result2
+        |> printfn "%A"
+
+        //(result1,result2)
+        //||> printfn "%A,%A"
+
+        Assert.Pass()
+
+    [<Test>]
+    member _.``6`` () =
+        let dag = TestContext.CurrentContext.Test.MethodName
+        let input = System.IO.File.ReadAllLines (sprintf @"C:\Users\STP\source\repos\econtra\AoC\AdventOfCode\Data\2022\%s.txt" dag)
+
         let result1 = 0
         let result2 = 0
 
         (result1,result2)
         ||> printfn "%A,%A"
+
+
+        Assert.Pass()
+
+    [<Test>]
+    member _.``7`` () =
+        let dag = TestContext.CurrentContext.Test.MethodName
+        let input = System.IO.File.ReadAllLines (sprintf @"C:\Users\STP\source\repos\econtra\AoC\AdventOfCode\Data\2022\%s.txt" dag)
+
+        let result1 = 0
+        let result2 = 0
+
+        (result1,result2)
+        ||> printfn "%A,%A"
+
+
         Assert.Pass()
