@@ -291,17 +291,19 @@ type ``Results`` () =
         let dag = TestContext.CurrentContext.Test.MethodName
         let input = System.IO.File.ReadAllLines (sprintf @"C:\Users\STP\source\repos\econtra\AoC\AdventOfCode\Data\2022\%s.txt" dag)
 
+        let n1 = 4
         let result1 = input
                       |> Array.head
-                      |> Seq.windowed 4
-                      |> Seq.findIndex (fun a -> a |> Array.distinct |> Array.length = 4)
+                      |> Seq.windowed n1
+                      |> Seq.findIndex (Array.distinct >> Array.length >> ((=) n1))
                       |> (+) 4 // Læg 4 til, da windowed starter på fjerde indgang
 
+        let n2 = 14
         let result2 = input
                       |> Array.head
-                      |> Seq.windowed 14
-                      |> Seq.findIndex (fun a -> a |> Array.distinct |> Array.length = 14)
-                      |> (+) 14 // Læg 14 til, da windowed starter på fjortende indgang
+                      |> Seq.windowed n2
+                      |> Seq.findIndex (Array.distinct >> Array.length >> ((=) n2))
+                      |> (+) n2 // Læg 14 til, da windowed starter på fjortende indgang
 
 
         (result1,result2)
