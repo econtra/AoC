@@ -301,7 +301,7 @@ type ``Results`` () =
                       |> Array.head
                       |> Seq.windowed 14
                       |> Seq.findIndex (fun a -> a |> Array.distinct |> Array.length = 14)
-                      |> (+) 14 // Læg 14 til, da windowed starter på fjerde indgang
+                      |> (+) 14 // Læg 14 til, da windowed starter på fjortende indgang
 
 
         (result1,result2)
