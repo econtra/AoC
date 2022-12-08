@@ -5,6 +5,7 @@ open NUnit.Framework
 open System
 open System.Diagnostics
 open System.IO
+open System.Collections.Generic
 
 type Hand =
     | Rock
@@ -27,6 +28,30 @@ type Hand =
             | Rock -> 1
             | Paper -> 2
             | Scissors -> 3
+
+
+
+
+type Command =
+    | IntoDir of string
+    | FileSize of int
+    | Out
+
+type Dir =
+    {
+        Name   : string
+        Size   : int
+    }
+
+type Tree =
+    {
+        X      : int
+        Y      : int
+        Height : int
+    }
+
+
+
 
 [<TestFixture>]
 type ``Results`` () =
@@ -314,6 +339,67 @@ type ``Results`` () =
 
     [<Test>]
     member _.``7`` () =
+        let dag = TestContext.CurrentContext.Test.MethodName
+        let input = System.IO.File.ReadAllLines (sprintf @"C:\Users\STP\source\repos\econtra\AoC\AdventOfCode\Data\2022\%s.txt" dag)
+                    |> Array.toList
+
+        let parse (line : string) : Command option =
+            match line with
+                | l when l = "$ cd .." -> Out |> Some
+                | l when l.Substring(0,4) = "$ cd" -> line.Substring(5) |> IntoDir |> Some
+                | _ -> if Char.IsDigit(line.Substring(0,1) |> char) then line.Split(' ') |> Array.head |> int |> FileSize |> Some else None
+
+        let commands = input |> List.choose parse
+
+        let folder (state : Dir list * Dir list) (command : Command) : Dir list * Dir list =
+            let openDirs,closedDirs = state
+            match command with
+                | IntoDir name -> ({Name = name; Size = 0} :: openDirs), closedDirs
+                | Out -> openDirs.Tail,(openDirs.Head :: closedDirs)
+                | FileSize i -> (openDirs |> List.map (fun d -> {d with Size = d.Size + i})), closedDirs
+
+        let maxDirSize = 100000
+
+        let dirs = commands
+                   |> List.fold folder (List.empty,List.empty)
+                   ||> List.append
+
+        let result1 = dirs
+                      |> List.filter (fun d -> d.Size <= maxDirSize)
+                      |> List.sumBy (fun d -> d.Size)
+
+
+        let diskSpace = 70000000
+        let unusedSpaceNeeded = 30000000
+        let usedSpace = dirs |> List.find (fun d -> d.Name = "/") |> (fun d -> d.Size)
+
+        let result2 = dirs
+                      |> List.filter (fun d -> diskSpace - usedSpace + d.Size > unusedSpaceNeeded)
+                      |> List.minBy (fun d -> d.Size)
+                      |> (fun d -> d.Size)
+
+        (result1,result2)
+        ||> printfn "%A,%A"
+
+
+        Assert.Pass()
+
+    [<Test>]
+    member _.``8`` () =
+        let dag = TestContext.CurrentContext.Test.MethodName
+        let input = System.IO.File.ReadAllLines (sprintf @"C:\Users\STP\source\repos\econtra\AoC\AdventOfCode\Data\2022\%s.txt" dag)
+
+        let result1 = 0
+        let result2 = 0
+
+        (result1,result2)
+        ||> printfn "%A,%A"
+
+
+        Assert.Pass()
+
+    [<Test>]
+    member _.``9`` () =
         let dag = TestContext.CurrentContext.Test.MethodName
         let input = System.IO.File.ReadAllLines (sprintf @"C:\Users\STP\source\repos\econtra\AoC\AdventOfCode\Data\2022\%s.txt" dag)
 
