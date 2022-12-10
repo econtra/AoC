@@ -50,8 +50,60 @@ type Tree =
         Height : int
     }
 
+type Point =
+    {
+        X : int
+        Y : int
+    }
+    member this.moveN =
+        {this with Y = this.Y + 1}
+    member this.moveS =
+        {this with Y = this.Y - 1}
+    member this.moveW =
+        {this with X = this.X - 1}
+    member this.moveE =
+        {this with X = this.X + 1}
+    member this.moveNE =
+        {this with X = this.X + 1; Y = this.Y + 1}
+    member this.moveSE =
+        {this with X = this.X + 1; Y = this.Y - 1}
+    member this.moveNW =
+        {this with X = this.X - 1; Y = this.Y + 1}
+    member this.moveSW =
+        {this with X = this.X - 1; Y = this.Y - 1}
+    static member distanceChessboard (p : Point) (q : Point) =
+        max (p.X - q.X |> abs) (p.Y - q.Y |> abs)
+    static member Origin =
+        {X = 0; Y = 0}
 
+type Rope =
+    {
+        Head : Point
+        Tail : Point
+        TailVisits : Point list
+    }
 
+type LongRope =
+    {
+        Parts : Point list
+        TailVisits : Point list
+    }
+
+type CPUCommand =
+    | NOOP
+    | ADDX of int
+
+type CPUbeh =
+    | AddCycle
+    | ChangeCounter of int
+
+type CPU =
+    {
+        Cycle : int
+        X     : int
+    }
+    static member init =
+        {Cycle = 0; X = 1}
 
 [<TestFixture>]
 type ``Results`` () =
@@ -388,9 +440,47 @@ type ``Results`` () =
     member _.``8`` () =
         let dag = TestContext.CurrentContext.Test.MethodName
         let input = System.IO.File.ReadAllLines (sprintf @"C:\Users\STP\source\repos\econtra\AoC\AdventOfCode\Data\2022\%s.txt" dag)
+                    |> Array.toList
 
-        let result1 = 0
-        let result2 = 0
+        let trees = input
+                    |> List.rev
+                    |> List.mapi  (fun i s -> s |> Seq.mapi (fun j t -> {X = j; Y = i; Height = t |> System.Globalization.CharUnicodeInfo.GetDigitValue}))
+                    |> Seq.collect id
+                    |> Seq.toList
+
+        let isVisible (trees : Tree list) (tree : Tree): bool =
+            let cross = trees
+                        |> List.filter (fun t -> t.X = tree.X || t.Y = tree.Y)
+            (
+                (cross |> List.exists (fun t -> t.X = tree.X && t.Y > tree.Y && t.Height >= tree.Height)) // tree blocking above
+                &&
+                (cross |> List.exists (fun t -> t.X = tree.X && t.Y < tree.Y && t.Height >= tree.Height)) // tree blocking below
+                &&
+                (cross |> List.exists (fun t -> t.X < tree.X && t.Y = tree.Y && t.Height >= tree.Height)) // tree blocking left
+                &&
+                (cross |> List.exists (fun t -> t.X > tree.X && t.Y = tree.Y && t.Height >= tree.Height)) // tree blocking right
+            )
+            |> not
+
+        let visibleTrees = trees
+                           |> List.filter (isVisible trees)
+
+        let scenicScore (trees : Tree list) (tree : Tree): int =
+            let cross = trees
+                        |> List.filter (fun t -> t.X = tree.X || t.Y = tree.Y)
+
+            let up = cross |> List.filter   (fun t -> t.Y > tree.Y) |> List.takeWhile (fun t -> t.Height < tree.Height) |> List.length |>             (fun i -> if i = (cross |> List.filter (fun t -> t.Y > tree.Y) |> List.length) then i else i+1)
+            let left = cross |> List.filter (fun t -> t.X < tree.X) |> List.rev |> List.takeWhile (fun t -> t.Height < tree.Height) |> List.length |> (fun i -> if i = (cross |> List.filter (fun t -> t.X < tree.X) |> List.length) then i else i+1)
+            let down = cross |> List.filter (fun t -> t.Y < tree.Y) |> List.rev |> List.takeWhile (fun t -> t.Height < tree.Height) |> List.length |> (fun i -> if i = (cross |> List.filter (fun t -> t.Y < tree.Y) |> List.length) then i else i+1)
+            let right = cross |> List.filter(fun t -> t.X > tree.X) |> List.takeWhile (fun t -> t.Height < tree.Height) |> List.length |>             (fun i -> if i = (cross |> List.filter (fun t -> t.X > tree.X) |> List.length) then i else i+1)
+
+            [up;down;left;right]
+            |> List.reduce (*)
+
+        let result1 = visibleTrees.Length
+        let result2 = trees
+                      |> List.maxBy (scenicScore trees)
+                      |> scenicScore trees
 
         (result1,result2)
         ||> printfn "%A,%A"
@@ -402,6 +492,124 @@ type ``Results`` () =
     member _.``9`` () =
         let dag = TestContext.CurrentContext.Test.MethodName
         let input = System.IO.File.ReadAllLines (sprintf @"C:\Users\STP\source\repos\econtra\AoC\AdventOfCode\Data\2022\%s.txt" dag)
+                   |> Array.toList
+
+        let parse (s : string) =
+            let split = s.Split(' ')
+            List.replicate (int split[1]) split[0]
+
+        let moveRope (state : Rope) (command : string) : Rope =
+            let newHead = match command with
+                             | "U" -> state.Head.moveN
+                             | "D" -> state.Head.moveS
+                             | "L" -> state.Head.moveW
+                             | "R" -> state.Head.moveE
+                             | _ -> failwith "Unknown command"
+
+            let newTail = if Point.distanceChessboard newHead state.Tail > 1 then state.Head else state.Tail
+
+            {state with Head = newHead; Tail = newTail; TailVisits = newTail :: state.TailVisits}
+
+        let pointsVisited = input
+                            |> List.collect parse
+                            |> List.fold moveRope {Head = Point.Origin; Tail = Point.Origin; TailVisits = [Point.Origin]}
+                            |> (fun r -> r.TailVisits |> List.distinct |> List.length)
+
+
+
+
+        let ropeLength = 10
+
+        let movePart (h : Point) (t : Point) : Point =
+            match h,t with
+                | x,y when (Point.distanceChessboard x y) <= 1 -> t
+                | x,y when (x.X = y.X || x.Y = y.Y) -> [y.moveE;y.moveN;y.moveS;y.moveW] |> List.find (fun p -> Point.distanceChessboard x p <= 1)
+                | x,y -> [y.moveNE;y.moveNW;y.moveSE;y.moveSW] |> List.find (fun p -> Point.distanceChessboard x p <= 1)
+
+        let rec moveLongRope (rope : Point list) : Point list =
+            match rope with
+                | [t] -> []
+                | h :: t -> let newTailHead = movePart h t.Head
+                            newTailHead :: moveLongRope (newTailHead :: t.Tail)
+
+        let moveLongRope (state : LongRope) (command : string) : LongRope =
+            let newHead = match command with
+                             | "U" -> state.Parts.Head.moveN
+                             | "D" -> state.Parts.Head.moveS
+                             | "L" -> state.Parts.Head.moveW
+                             | "R" -> state.Parts.Head.moveE
+                             | _ -> failwith "Unknown command"
+
+            let newTail = moveLongRope (newHead :: state.Parts.Tail)
+
+            {state with Parts = newHead :: newTail; TailVisits = List.last newTail :: state.TailVisits}
+
+
+
+        let pointsVisited2 = input
+                             |> List.collect parse
+                             |> List.fold moveLongRope {Parts = List.replicate ropeLength Point.Origin; TailVisits = [Point.Origin]}
+                             |> (fun r -> r.TailVisits |> List.distinct |> List.length)
+
+        let result1 = pointsVisited
+        let result2 = pointsVisited2
+
+        (result1,result2)
+        ||> printfn "%A,%A"
+
+
+        Assert.Pass()
+
+    [<Test>]
+    member _.``10`` () =
+        let dag = TestContext.CurrentContext.Test.MethodName
+        let input = System.IO.File.ReadAllLines (sprintf @"C:\Users\STP\source\repos\econtra\AoC\AdventOfCode\Data\2022\%s.txt" dag)
+                    |> Array.toList
+
+        let inputtest = System.IO.File.ReadAllLines (sprintf @"C:\Users\STP\source\repos\econtra\AoC\AdventOfCode\Data\2022\%stest.txt" dag)
+                        |> Array.toList
+
+        let parse (s : string) =
+            let split = s.Split(' ')
+            match split[0] with
+                | "addx" -> [AddCycle; AddCycle; split[1] |> int |> ChangeCounter]
+                | "noop" -> [AddCycle]
+
+        let scanner (cpu : CPU) (command : CPUbeh) : CPU =
+            match command with
+                | AddCycle -> {cpu with Cycle = cpu.Cycle + 1}
+                | ChangeCounter x -> {cpu with X = cpu.X + x}
+
+        let states = input
+                     |> List.collect parse
+                     |> List.scan scanner CPU.init
+
+        let interesting = List.init 6 (fun j -> j * 40 + 20)
+                          |> List.map (fun i -> states |> List.find (fun s -> s.Cycle = i) |> (fun cpu -> cpu.X * i))
+                          |> List.sum
+
+
+        let result1 = interesting
+
+
+
+
+        let result2 = 0
+
+        (result1,result2)
+        ||> printfn "%A,%A"
+
+        System.IO.File.WriteAllLines (sprintf @"C:\Users\STP\source\repos\econtra\AoC\AdventOfCode\Data\2022\%stestresult.txt" dag, inputtest)
+
+
+        Assert.Pass()
+
+    [<Test>]
+    member _.``11`` () =
+        let dag = TestContext.CurrentContext.Test.MethodName
+        let input = System.IO.File.ReadAllLines (sprintf @"C:\Users\STP\source\repos\econtra\AoC\AdventOfCode\Data\2022\%s.txt" dag)
+                    |> Array.toList
+
 
         let result1 = 0
         let result2 = 0
