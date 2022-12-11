@@ -105,6 +105,15 @@ type CPU =
     static member init =
         {Cycle = 0; X = 1}
 
+type Monkey =
+    {
+        Number : int
+        Items : int list
+        Operation : int -> int
+        Test : int -> int
+        InspectionCount : int
+    }
+
 [<TestFixture>]
 type ``Results`` () =
 
@@ -626,6 +635,76 @@ type ``Results`` () =
 
     [<Test>]
     member _.``11`` () =
+        let dag = TestContext.CurrentContext.Test.MethodName
+        let input = System.IO.File.ReadAllLines (sprintf @"C:\Users\STP\source\repos\econtra\AoC\AdventOfCode\Data\2022\%s.txt" dag)
+                    |> Array.toList
+                    |> List.chunkBySize 7
+
+        let monkeyParser (monkeyAsStringList : string list) : Monkey =
+            let number = (monkeyAsStringList[0].Split(' ')[1]).Substring(0,1) |> int
+            let items = (monkeyAsStringList[1].Split(':')[1]).Split(',') |> Array.map int |> Array.toList
+            let operation =
+                let split = (monkeyAsStringList[2].Split('=')[1]).Split(' ')
+                if split[3] = "old" then (fun (x : int) -> x * x) else match split[2], int split[3] with
+                                                                       | "+", x -> (+) x
+                                                                       | "-", x -> (-) x
+                                                                       | "*", x -> (*) x
+                                                                       | "/", x -> (/) x
+            let test =
+                let div = int (monkeyAsStringList[3].Split("by ")[1])
+                let ifTrue = int (monkeyAsStringList[4].Split("monkey ")[1])
+                let ifFalse = int (monkeyAsStringList[5].Split("monkey ")[1])
+                (fun x -> if x % div = 0 then ifTrue else ifFalse)
+            {
+                Number = number
+                Items = items
+                Operation = operation
+                Test = test
+                InspectionCount = 0
+            }
+
+        let monkeys = input
+                      |> List.map monkeyParser
+
+        let numberOfTurns = 20
+
+        let monkeyTurn (monkeys : Monkey list) (monkeyNumber : int) : Monkey list =
+            let monkey = monkeys |> List.find (fun m -> m.Number = monkeyNumber)
+            let items = monkey.Items
+                        |> List.map monkey.Operation
+                        |> List.map (fun i -> (/) (float i) (float 3) |> floor |> int)
+                        |> List.groupBy monkey.Test
+                        |> dict
+
+            monkeys
+            |> List.map (
+                            fun m -> if m.Number = monkeyNumber then
+                                        {m with Items = []; InspectionCount = m.InspectionCount + monkey.Items.Length}
+                                     else
+                                        {m with Items = m.Items @ (if items.ContainsKey m.Number then items.Item m.Number else [])}
+                        )
+
+        let monkeyBusiness (monkeys : Monkey list) i : Monkey list =
+            [0 .. monkeys.Length - 1]
+            |> List.fold monkeyTurn monkeys
+
+        let result1 = [1 .. numberOfTurns]
+                      |> List.fold monkeyBusiness monkeys
+                      |> List.sortByDescending (fun m -> m.InspectionCount)
+                      |> List.take 2
+                      |> List.map (fun m -> m.InspectionCount)
+                      |> List.reduce (*)
+
+        let result2 = 0
+
+        (result1,result2)
+        ||> printfn "%A,%A"
+
+
+        Assert.Pass()
+
+    [<Test>]
+    member _.``12`` () =
         let dag = TestContext.CurrentContext.Test.MethodName
         let input = System.IO.File.ReadAllLines (sprintf @"C:\Users\STP\source\repos\econtra\AoC\AdventOfCode\Data\2022\%s.txt" dag)
                     |> Array.toList
