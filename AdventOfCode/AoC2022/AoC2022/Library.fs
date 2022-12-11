@@ -566,9 +566,6 @@ type ``Results`` () =
         let input = System.IO.File.ReadAllLines (sprintf @"C:\Users\STP\source\repos\econtra\AoC\AdventOfCode\Data\2022\%s.txt" dag)
                     |> Array.toList
 
-        let inputtest = System.IO.File.ReadAllLines (sprintf @"C:\Users\STP\source\repos\econtra\AoC\AdventOfCode\Data\2022\%stest.txt" dag)
-                        |> Array.toList
-
         let parse (s : string) =
             let split = s.Split(' ')
             match split[0] with
@@ -592,14 +589,37 @@ type ``Results`` () =
         let result1 = interesting
 
 
+        let collapsedStates = states.Tail |> List.distinctBy (fun s -> s.Cycle)
+
+        let folder (crt : string) (cpu : CPU) : string =
+            let projectedCycle = cpu.Cycle % 40
+            let s = if abs (projectedCycle - 1 - cpu.X) <= 1 then "#" else "."
+            crt + s
 
 
-        let result2 = 0
+
+
+        let implode (xs:char list) =
+            let sb = System.Text.StringBuilder(xs.Length)
+            xs |> List.iter (sb.Append >> ignore)
+            sb.ToString()
+
+        let crt = collapsedStates
+                  |> List.fold folder ""
+                  |> Seq.chunkBySize 40
+                  |> Seq.map (Array.toList >> implode)
+                  |> Seq.toList
+
+
+
+        let resultPath = sprintf @"C:\Users\STP\source\repos\econtra\AoC\AdventOfCode\Data\2022\%sresult.txt" dag
+
+        let result2 = sprintf "See %A" resultPath
 
         (result1,result2)
         ||> printfn "%A,%A"
 
-        System.IO.File.WriteAllLines (sprintf @"C:\Users\STP\source\repos\econtra\AoC\AdventOfCode\Data\2022\%stestresult.txt" dag, inputtest)
+        System.IO.File.WriteAllLines (resultPath, crt)
 
 
         Assert.Pass()
