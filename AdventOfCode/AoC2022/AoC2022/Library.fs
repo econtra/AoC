@@ -49,11 +49,21 @@ type Tree =
         Y      : int
         Height : int
     }
+    member this.moveN =
+        {this with Y = this.Y + 1}
+    member this.moveS =
+        {this with Y = this.Y - 1}
+    member this.moveW =
+        {this with X = this.X - 1}
+    member this.moveE =
+        {this with X = this.X + 1}
 
 type Point =
     {
+        Name : string option
         X : int
         Y : int
+        Value : int option
     }
     member this.moveN =
         {this with Y = this.Y + 1}
@@ -71,10 +81,14 @@ type Point =
         {this with X = this.X - 1; Y = this.Y + 1}
     member this.moveSW =
         {this with X = this.X - 1; Y = this.Y - 1}
+    /// This is also the 1-norm
+    static member distanceTaxi (p : Point) (q : Point) =
+        (p.X - q.X |> abs) + (p.Y - q.Y |> abs)
+    /// This is also the infty-norm
     static member distanceChessboard (p : Point) (q : Point) =
         max (p.X - q.X |> abs) (p.Y - q.Y |> abs)
     static member Origin =
-        {X = 0; Y = 0}
+        {Name = None; X = 0; Y = 0; Value = None}
 
 type Rope =
     {
@@ -113,6 +127,33 @@ type Monkey =
         Test : int -> int
         InspectionCount : int
     }
+
+type Node =
+    {
+        Name : string option
+        Destinations : Node list
+        isVisited : bool
+    }
+
+type IntOrList =
+    | Integer of int
+    | List of IntOrList list
+
+type BFSstate =
+    {
+        Queue : (Point * int) list
+        VisitedPoints : Point list
+    }
+    static member Start (startNode : Point) =
+        {
+            Queue = [startNode,0]
+            VisitedPoints = []
+        }
+
+let manhattanDistance (p : int * int) (q : int * int) =
+    let x,y = p
+    let a,b = q
+    (abs (x - a), abs (y - b)) ||> (+)
 
 [<TestFixture>]
 type ``Results`` () =
@@ -709,9 +750,264 @@ type ``Results`` () =
         let input = System.IO.File.ReadAllLines (sprintf @"C:\Users\STP\source\repos\econtra\AoC\AdventOfCode\Data\2022\%s.txt" dag)
                     |> Array.toList
 
+        let let2nat (letter : char) = match letter with
+                                      | 'S' -> 0
+                                      | 'E' -> 25
+                                      | _ -> int letter - int 'a'
+
+        let points = input
+                     |> List.mapi  (fun i s -> s |> Seq.mapi (fun j t -> {Name = t |> string |> Some; X = i; Y = j; Value = t |> let2nat |> Some}))
+                     |> Seq.collect id
+                     |> Seq.toList
+
+        let startPoint = points |> List.find (fun p -> p.Name = Some "S")
+        let endPoint = points |> List.find (fun p -> p.Name = Some "E")
+
+        let paths = points |> List.map (fun p ->
+                                                                let relevantNeigbours = points |> List.filter (fun q -> Point.distanceTaxi q p = 1 && q.Value.Value <= p.Value.Value + 1)
+                                                                p,relevantNeigbours
+                                       )
+                           |> dict
+
+        let generator (state : BFSstate) =
+            if state.Queue.IsEmpty then
+                None
+            else
+                let currentPoint,currentLenght = state.Queue.Head
+                let newVisitedPoints = currentPoint :: state.VisitedPoints
+                let oldQueue = state.Queue
+                let relevantNeighbours = paths.Item currentPoint |> List.filter (fun p ->
+                                                                                                List.exists ((=) p) newVisitedPoints |> not
+                                                                                                &&
+                                                                                                List.exists (fun q -> p = fst q) oldQueue |> not
+                                                                                     )
+                let relevantNeighboursWithTraces = relevantNeighbours |> List.map (fun p -> p,currentLenght + 1)
+                let newQueue = oldQueue.Tail @ relevantNeighboursWithTraces
+                let newState = {Queue = newQueue; VisitedPoints = newVisitedPoints}
+                Some ((if currentPoint.Name = Some "E" then Some (currentPoint,currentLenght) else None),newState)
+
+        let traces = List.unfold generator (BFSstate.Start startPoint)
+
+        let result1 = traces
+                      |> List.find (fun trace -> trace.IsSome)
+                      |> (fun t -> (snd t.Value))
+
+
+
+
+
+        let startPoints = points |> List.filter (fun p -> p.Name = (Some "S") || p.Name = (Some "a"))
+
+        let result2 = startPoints
+                      |> List.map (fun p -> (List.unfold generator (BFSstate.Start p)))
+                      |> List.map (fun p -> p |> List.filter (fun x -> x.IsSome))
+                      |> List.map (fun p -> match p with | [] -> Int32.MaxValue | l -> l.Head.Value |> snd)
+                      |> List.min
+
+        (result1,result2)
+        ||> printfn "%A,%A"
+
+
+        Assert.Pass()
+
+    [<Test>]
+    member _.``13`` () =
+        let dag = TestContext.CurrentContext.Test.MethodName
+        let input = System.IO.File.ReadAllLines (sprintf @"C:\Users\STP\source\repos\econtra\AoC\AdventOfCode\Data\2022\%s.txt" dag)
+                    |> Array.toList
+                    |> List.chunkBySize 3
+                    |> List.map (fun l -> l |> List.filter (fun s -> s <> ""))
+
+        let removeFirstAndLast (s : string) : string =
+            s |> Seq.tail |> Seq.rev |> Seq.tail |> Seq.rev |> Seq.map string |> Seq.reduce (+)
+
+        let removeFirst (s : string) : string =
+            s |> Seq.tail |> Seq.map string |> Seq.reduce (+)
+
+        let inline charToInt c = int c - int '0'
+
+        //let rec parser (remainder : string) (currentList : IntOrList list) : IntOrList list =
+        //    let current = Seq.head remainder
+        //    match current with
+        //    | '[' -> let content = remainder |> removeFirstAndLast
+        //             (parser newRemainder [])
+        //    | _ -> (current |> charToInt |> IntOrList.Integer)  (line |> removeFirst |> parser |> IntOrList.List)
+
+        //let a = input
+        //        |> List.map (fun l -> l |> List.map parser)
 
         let result1 = 0
         let result2 = 0
+
+        (result1,result2)
+        ||> printfn "%A,%A"
+
+
+        Assert.Pass()
+
+    [<Test>]
+    member _.``14`` () =
+        let dag = TestContext.CurrentContext.Test.MethodName
+        let input = System.IO.File.ReadAllLines (sprintf @"C:\Users\STP\source\repos\econtra\AoC\AdventOfCode\Data\2022\%s.txt" dag)
+                    |> Array.toList
+
+        let lineToPoints (line : string) : (int * int) list =
+            line.Split(" -> ")
+            |> Array.map (fun s -> s.Split(",")[0] |> int , s.Split(",")[1] |> int)
+            |> Array.toList
+
+        let rockInfo = input
+                       |> List.map lineToPoints
+
+        let processRock (endPoints : (int * int) list) =
+            let windows = List.windowed 2 endPoints
+            windows
+            |> List.collect (
+                                fun l -> if fst l.[0] = fst l.[1] then
+                                            [(min (snd l.[0]) (snd l.[1])) .. (max (snd l.[0]) (snd l.[1]))] |> List.map (fun x -> fst l.[0],x)
+                                         else
+                                            [(min (fst l.[0]) (fst l.[1])) .. (max (fst l.[0]) (fst l.[1]))] |> List.map (fun x -> x, snd l.[0])
+                            )
+            |> List.distinct
+
+        let completeRocks = rockInfo
+                            |> List.collect processRock
+
+        let minOut  = completeRocks |> List.minBy (fun (x,y) -> x) |> fst |> (+) (-2)//486
+        let maxOut  = completeRocks |> List.maxBy (fun (x,y) -> x) |> fst |> (+) 2//582
+        let maxDown = completeRocks |> List.maxBy (fun (x,y) -> y) |> snd |> (+) 2//175
+
+        //let initCave = List.init (maxOut * maxDown) (fun i -> {Name = None; X = i % maxOut; Y = (float (i+1)) / (float maxOut) |> ceil |> int; Value = None})
+        //               |> List.filter (fun p -> p.X > minOut)
+
+        let initCave = Array2D.init maxOut maxDown (fun x y -> if (completeRocks |> List.exists (fun p -> p = (x,y))) then 1 else 0)
+
+
+
+        let rec processCave (cave : int array2d) : int array2d =
+
+            let rec moveSand (position : int * int) : (int * int) =
+                match position with
+                | x,y when y >= maxDown - 1 -> (0,0)
+                | x,y when cave.[x,y + 1] = 0 -> moveSand (x,y + 1)
+                | x,y when cave.[x - 1,y + 1] = 0 -> moveSand (x - 1,y + 1)
+                | x,y when cave.[x + 1,y + 1] = 0 -> moveSand (x + 1,y + 1)
+                | _ -> position
+
+            let startSandPosition = (500,0)
+            let endSandPosition = moveSand startSandPosition
+            if endSandPosition = (0,0) then
+                cave
+            else
+                 (endSandPosition ||> (Array2D.set cave) <| 2)
+                 processCave cave
+
+
+
+
+
+        let newMaxOut = 1100
+        let newMaxDown = maxDown
+
+        let initCave2 = Array2D.init newMaxOut (newMaxDown + 2) (fun x y -> if (completeRocks |> List.exists (fun p -> p = (x,y))) || y=newMaxDown then 1 else 0)
+
+        let rec processCave2 (cave : int array2d) : int array2d =
+
+            let rec moveSand (position : int * int) : (int * int) =
+                match position with
+                | x,y when cave.[x,y + 1] = 0 -> moveSand (x,y + 1)
+                | x,y when cave.[x - 1,y + 1] = 0 -> moveSand (x - 1,y + 1)
+                | x,y when cave.[x + 1,y + 1] = 0 -> moveSand (x + 1,y + 1)
+                | _ -> position
+
+            let startSandPosition = (500,0)
+            let endSandPosition = moveSand startSandPosition
+            if endSandPosition = startSandPosition then
+                (endSandPosition ||> (Array2D.set cave) <| 2)
+                cave
+            else
+                (endSandPosition ||> (Array2D.set cave) <| 2)
+                processCave2 cave
+
+        let result1 = initCave
+                      |> processCave
+                      |> Seq.cast<int>
+                      |> Seq.filter (fun i -> i = 2)
+                      |> Seq.length
+        let result2 = initCave2
+                      |> processCave2
+                      |> Seq.cast<int>
+                      |> Seq.filter (fun i -> i = 2)
+                      |> Seq.length
+
+        (result1,result2)
+        ||> printfn "%A,%A"
+
+
+        Assert.Pass()
+
+    [<Test>]
+    member _.``15`` () =
+        let dag = TestContext.CurrentContext.Test.MethodName
+        let input = System.IO.File.ReadAllLines (sprintf @"C:\Users\STP\source\repos\econtra\AoC\AdventOfCode\Data\2022\%s.txt" dag)
+                    |> Array.toList
+
+        let stringToSensorAndBeacon (s : string) : ((int * int) * (int * int)) =
+            let split = s.Split('=')
+            let a = split[1].Split(',')[0] |> int
+            let b = split[2].Split(':')[0] |> int
+            let x = split[3].Split(',')[0] |> int
+            let y = split[4]               |> int
+            ((a,b),(x,y))
+
+        let sensorsAndBeaconsAndDistances = input
+                                            |> List.map stringToSensorAndBeacon
+                                            |> List.map (fun (sensor,beacon) -> sensor, beacon,manhattanDistance sensor beacon)
+
+        let minOut = sensorsAndBeaconsAndDistances
+                     |> List.map (fun ((a,b),_,d) -> a - d)
+                     |> List.min
+
+        let maxOut = sensorsAndBeaconsAndDistances
+                     |> List.map (fun ((a,b),_,d) -> a + d)
+                     |> List.max
+
+        let relevantrow = 2000000
+
+        let noBeacons = [minOut .. maxOut]
+                        |> List.map (fun x -> x,relevantrow)
+                        |> List.filter (
+                                            fun p -> sensorsAndBeaconsAndDistances
+                                                     |> List.exists (
+                                                                        fun (s,b,d) -> manhattanDistance p s <= d
+                                                                                       &&
+                                                                                       p <> b
+                                                                    )
+                                       )
+
+        let result1 = noBeacons.Length
+
+        let minBeaconPos,maxBeaconPos = 0,4000000
+
+        let a = sensorsAndBeaconsAndDistances
+                |> List.collect (
+                                fun ((a,b),_,d) -> let distancePlusOne = d + 1
+                                                   let bl = ([0 .. d] |> List.map (fun i -> a - distancePlusOne + i         , b + i    ))
+                                                   let br = ([0 .. d] |> List.map (fun i -> a + i     , b + distancePlusOne - i))
+                                                   let tr = ([0 .. d] |> List.map (fun i -> a + distancePlusOne - i         , b - i    ))
+                                                   let tl = ([0 .. d] |> List.map (fun i -> a - i     , b - distancePlusOne + i))
+                                                   bl @ br @ tr @ tl
+                                                   |> List.filter (fun (a,b) -> max a b <= maxBeaconPos && min a b >= minBeaconPos)
+                                                   //|> Set.ofList
+                            )
+                |> List.countBy id
+                |> List.sortByDescending (fun ((_,_),c) -> c)
+                |> List.head
+                |> fst
+                |> (fun (a,b) -> 4000000.0 * (float a) + (float b))
+                //|> Set.intersectMany
+
+        let result2 = a
 
         (result1,result2)
         ||> printfn "%A,%A"
