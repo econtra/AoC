@@ -1014,3 +1014,50 @@ type ``Results`` () =
 
 
         Assert.Pass()
+
+
+    [<Test>]
+    member _.``16`` () =
+        let dag = TestContext.CurrentContext.Test.MethodName
+        let test = "Steffen Thyge Pedersen"
+        let input = System.IO.File.ReadAllText (sprintf @"C:\Users\STP\source\repos\econtra\AoC\AdventOfCode\Data\2022\%s.txt" dag)
+                    |> (fun s -> s.Split ',')
+                    |> Array.toList
+
+        let firstThreeLetters (name : string) =
+            name.Substring (0,3) |> (fun s -> s.ToUpper())
+
+        let firstTwoAndLastLetter (name : string) =
+            name.Substring (0,2) + string name[name.Length - 1] |> (fun s -> s.ToUpper())
+
+        let firstAndLastTwoLetters (name : string) =
+            name.Substring (0,1) + string name[name.Length - 2] + string name[name.Length - 1] |> (fun s -> s.ToUpper())
+
+        let firstLetterAndTwoX (name : string) =
+            name.Substring (0,1) + "XX" |> (fun s -> s.ToUpper())
+
+        let firstTwoLettersAndX (name : string) =
+            name.Substring (0,1) + string name[name.Length - 2] + "X" |> (fun s -> s.ToUpper())
+
+        let listOfMethods =
+            [
+                firstThreeLetters
+                firstTwoAndLastLetter
+                firstAndLastTwoLetters
+                firstLetterAndTwoX
+                firstTwoLettersAndX
+            ]
+
+        let findUnusedAbbreviation (alreadyInUse : string list) (name : string) =
+            let f = listOfMethods
+                    |> List.tryFind (fun g -> let candidate = g name
+                                              alreadyInUse |> List.exists ((=) candidate) |> not
+                                              )
+            match f with | Some f -> alreadyInUse @ [f name] | None -> failwith ("KEK")
+
+        let result = input
+                     |> List.fold findUnusedAbbreviation List.empty
+
+        let a = 5
+
+        Assert.Pass()
